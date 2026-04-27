@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: bigProject
+    name: learn-harness
 
   ai:
     dashscope:

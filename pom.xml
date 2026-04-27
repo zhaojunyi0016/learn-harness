@@ -3,7 +3,7 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.big.project</groupId>
-    <artifactId>bigProject</artifactId>
+    <artifactId>learn-harness</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>bigProject</name>
     <description>bigProject</description>
@@ -70,7 +70,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
-                    <mainClass>com.big.project.BigProjectApplication</mainClass>
+                    <mainClass>com.learn.harness.BigProjectApplication</mainClass>
                     <skip>true</skip>
                 </configuration>
                 <executions>
