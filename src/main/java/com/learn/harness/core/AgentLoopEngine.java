@@ -42,9 +42,6 @@ public class AgentLoopEngine {
     private static final int DEFAULT_MAX_LOOPS = 10;
 
     @Resource
-    private ChatModel chatModel;
-
-    @Resource
     private ChatClient chatClient;
 
     @Resource
