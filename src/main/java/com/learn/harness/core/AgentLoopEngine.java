@@ -1,16 +1,21 @@
-package com.learn.harness.loop;
+package com.learn.harness.core;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.support.ToolCallbacks;
+import org.springframework.ai.tool.ToolCallback;
+import com.learn.harness.tools.WeatherTool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,9 +32,9 @@ import java.util.function.Consumer;
  * 4. 提供状态回调和日志记录
  */
 @Service
-public class AgentLoop {
+public class AgentLoopEngine {
 
-    private static final Logger logger = LoggerFactory.getLogger(AgentLoop.class);
+    private static final Logger logger = LoggerFactory.getLogger(AgentLoopEngine.class);
 
     /**
      * 默认最大循环次数
@@ -37,7 +42,33 @@ public class AgentLoop {
     private static final int DEFAULT_MAX_LOOPS = 10;
 
     @Resource
+    private ChatModel chatModel;
+
+    @Resource
     private ChatClient chatClient;
+
+    @Resource
+    private WeatherTool weatherTool;
+
+    /**
+     * 工具列表
+     */
+    private List<ToolCallback> toolCallbacks;
+
+    /**
+     * 初始化工具回调
+     */
+    @PostConstruct
+    public void initTools() {
+        toolCallbacks = new ArrayList<>();
+        
+        // 注册天气查询工具 - 自动扫描 @Tool 注解的方法
+        for (ToolCallback toolCallback : ToolCallbacks.from(weatherTool)) {
+            toolCallbacks.add(toolCallback);
+        }
+        
+        logger.info("已注册 {} 个工具", toolCallbacks.size());
+    }
 
     /**
      * 最大循环次数，防止无限调用
@@ -102,17 +133,16 @@ public class AgentLoop {
                 onLoopStart.accept(status);
             }
 
-            logger.debug("第 {} 轮循环开始", loopCount);
+            logger.info("第 {} 轮循环开始", loopCount);
 
             try {
                 // 2️⃣ 调用模型
-                ChatResponse chatResponse = callModel(messages);
+                AssistantMessage assistantMessage = callModel(messages);
 
                 // 3️⃣ 获取模型响应并加入上下文
-                AssistantMessage assistantMessage = chatResponse.getResult().getOutput();
                 messages.add(assistantMessage);
 
-                logger.debug("模型响应: {}", assistantMessage.getText());
+                logger.info("模型响应: {}", assistantMessage.getText());
 
                 // 4️⃣ 判断是否有 Tool Call
                 if (hasToolCalls(assistantMessage)) {
@@ -129,7 +159,7 @@ public class AgentLoop {
 
                     // 6️⃣ 把 Tool 结果追加回去
                     messages.add(toolResponseMessage);
-                    logger.debug("Tool 执行完成，结果已加入上下文");
+                    logger.info("Tool 执行完成，结果已加入上下文");
 
                     // 继续下一轮循环
                     continue;
@@ -158,12 +188,18 @@ public class AgentLoop {
     /**
      * 调用模型
      */
-    private ChatResponse callModel(List<Message> messages) {
-        return chatClient.prompt()
+    private AssistantMessage callModel(List<Message> messages) {
+        ChatResponse response = chatClient.prompt()
                 .messages(messages)
-                .tools()
+                .toolCallbacks(toolCallbacks)
                 .call()
-                .entity(ChatResponse.class);
+                .chatResponse();
+        
+        if (response != null && response.getResult() != null) {
+            return response.getResult().getOutput();
+        }
+        
+        return new AssistantMessage("模型未返回有效响应");
     }
 
     /**
@@ -177,9 +213,7 @@ public class AgentLoop {
      * 执行 Tool Calls
      * 使用 MethodToolCallback 执行每个工具调用
      */
-    private ToolResponseMessage executeTools(
-            List<AssistantMessage.ToolCall> toolCalls,
-            Map<String, Object> contextParams) {
+    private ToolResponseMessage executeTools(List<AssistantMessage.ToolCall> toolCalls, Map<String, Object> contextParams) {
 
         List<ToolResponseMessage.ToolResponse> toolResponses = new ArrayList<>();
 
@@ -188,11 +222,11 @@ public class AgentLoop {
             String toolName = toolCall.name();
             String arguments = toolCall.arguments();
 
-            logger.info("执行 Tool: {}, ID: {}", toolName, toolCallId);
+            logger.info("执行 Tool: {}, ID: {}, 参数: {}", toolName, toolCallId, arguments);
 
             try {
-                // 查找对应的 ToolCallback 并执行
-                Object result = executeToolByName(toolName, arguments);
+                // 直接从 toolCallbacks 中找到对应的工具并执行
+                Object result = invokeToolCallback(toolName, arguments);
 
                 toolResponses.add(new ToolResponseMessage.ToolResponse(
                         toolCallId,
@@ -200,7 +234,7 @@ public class AgentLoop {
                         String.valueOf(result)
                 ));
 
-                logger.debug("Tool {} 执行成功，结果: {}", toolName, result);
+                logger.info("Tool {} 执行成功，结果: {}", toolName, result);
 
             } catch (Exception e) {
                 logger.error("Tool {} 执行失败", toolName, e);
@@ -218,12 +252,20 @@ public class AgentLoop {
     }
 
     /**
-     * 根据工具名称执行工具
-     * 子类可覆盖此方法实现自定义的工具执行逻辑
+     * 直接调用 ToolCallback 执行工具
      */
-    protected Object executeToolByName(String toolName, String arguments) {
-        // 这里是默认实现，子类或外部可通过注入 ToolCallbackRegistry 来管理工具
-        logger.warn("未找到工具 {} 的执行器，请确保已注册该工具", toolName);
+    private String invokeToolCallback(String toolName, String arguments) {
+        for (ToolCallback callback : toolCallbacks) {
+            if (callback.getToolDefinition().name().equals(toolName)) {
+                try {
+                    return callback.call(arguments);
+                } catch (Exception e) {
+                    logger.error("Tool {} 执行异常", toolName, e);
+                    return "Tool执行异常: " + e.getMessage();
+                }
+            }
+        }
+        logger.warn("未找到工具: {}", toolName);
         return "工具未找到: " + toolName;
     }
 
@@ -232,7 +274,7 @@ public class AgentLoop {
     /**
      * 设置最大循环次数
      */
-    public AgentLoop maxLoopCount(int maxLoopCount) {
+    public AgentLoopEngine maxLoopCount(int maxLoopCount) {
         this.maxLoopCount = maxLoopCount;
         return this;
     }
@@ -240,7 +282,7 @@ public class AgentLoop {
     /**
      * 设置循环开始回调
      */
-    public AgentLoop onLoopStart(Consumer<LoopStatus> callback) {
+    public AgentLoopEngine onLoopStart(Consumer<LoopStatus> callback) {
         this.onLoopStart = callback;
         return this;
     }
@@ -248,7 +290,7 @@ public class AgentLoop {
     /**
      * 设置循环结束回调
      */
-    public AgentLoop onLoopEnd(Consumer<LoopStatus> callback) {
+    public AgentLoopEngine onLoopEnd(Consumer<LoopStatus> callback) {
         this.onLoopEnd = callback;
         return this;
     }
@@ -256,7 +298,7 @@ public class AgentLoop {
     /**
      * 设置 Tool 执行回调
      */
-    public AgentLoop onToolExecuted(Consumer<ToolExecutionResult> callback) {
+    public AgentLoopEngine onToolExecuted(Consumer<ToolExecutionResult> callback) {
         this.onToolExecuted = callback;
         return this;
     }
