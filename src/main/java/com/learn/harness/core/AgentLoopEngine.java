@@ -168,8 +168,8 @@ public class AgentLoopEngine {
                 break;
 
             } catch (Exception e) {
-                logger.error("第 {} 轮循环执行异常", loopCount, e);
                 finalResponse = "执行过程中发生错误: " + e.getMessage();
+                logger.error("第 {} 轮循环执行异常", loopCount, e);
                 break;
             } finally {
                 // 触发循环结束回调
