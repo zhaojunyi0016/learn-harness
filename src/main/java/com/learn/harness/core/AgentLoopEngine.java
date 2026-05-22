@@ -178,7 +178,6 @@ public class AgentLoopEngine {
                 }
             }
         }
-
         return finalResponse;
     }
 
