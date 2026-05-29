@@ -32,7 +32,7 @@ public class WeatherTool {
         logger.info("查询城市天气: {}", city);
 
         try {
-            // 模拟天气数据（实际项目中可调用第三方天气 API）
+            // 模拟 天气数据（实际项目中可调用第三方天气 API）
             String weatherData = getMockWeatherData(city);
             return weatherData;
         } catch (Exception e) {
