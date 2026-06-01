@@ -39,6 +39,12 @@
                 <version>1.1.2.0</version>
             </dependency>
 
+            <!-- Gson：agent/ 目录下 S01~S19 教程类使用，AnthropicClient 依赖它做 JSON 序列化 -->
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>2.10.1</version>
+            </dependency>
 
     </dependencies>
     <dependencyManagement>
