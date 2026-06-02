@@ -75,8 +75,8 @@ public class S03TodoWrite {
 
     /** 单个计划项 */
     static class TodoItem {
-        String content;      // 任务内容
-        TodoStatus status;   // 当前状态
+        String content;      // 任务 内容
+        TodoStatus status;   // 当前 状态
         String activeForm;   // 进行中时的描述（可选）
 
         TodoItem(String content, TodoStatus status, String activeForm) {
