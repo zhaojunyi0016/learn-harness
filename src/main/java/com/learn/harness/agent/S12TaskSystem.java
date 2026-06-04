@@ -189,7 +189,7 @@ public class S12TaskSystem {
 
     private static final TaskManager taskMgr = new TaskManager(TASKS_DIR);
 
-    // ==================== 工具定义 ====================
+    // ==================== 工具定义 =======================
 
     private static List<Map<String, Object>> buildTools() {
         List<Map<String, Object>> tools = new ArrayList<>(CommonTools.allBasicToolDefs());
