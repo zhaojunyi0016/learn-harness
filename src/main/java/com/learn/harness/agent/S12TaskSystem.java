@@ -215,7 +215,7 @@ public class S12TaskSystem {
 
     private static final List<Map<String, Object>> TOOLS = buildTools();
 
-    // ==================== 工具分发 ====================
+    // ==================== 工具分发 ======================
 
     private static String dispatchTool(String name, JsonObject args) {
         return switch (name) {
