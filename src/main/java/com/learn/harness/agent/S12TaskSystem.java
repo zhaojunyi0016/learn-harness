@@ -232,8 +232,7 @@ public class S12TaskSystem {
         };
     }
 
-    // =================== Agent 循环 ====================
-
+    // ==================== Agent 循环 =====================
     private static void agentLoop(List<Map<String, Object>> messages) {
         int maxTurns = 30;
         for (int turn = 0; turn < maxTurns; turn++) {
