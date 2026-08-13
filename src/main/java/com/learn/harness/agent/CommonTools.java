@@ -218,7 +218,7 @@ public class CommonTools {
     /** write_file 工具定义 */
     public static Map<String, Object> writeFileToolDef() {
         return DashScopeClient.toolDefinition("write_file",
-                "把内容写入文件（会覆盖原有内容）",
+                "把内容 写入文件（会覆盖原有内容）",
                 Map.of(
                         "type", "object",
                         "properties", Map.of(
